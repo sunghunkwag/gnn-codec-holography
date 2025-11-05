@@ -1,5 +1,8 @@
 # GNN-Based Codec-Holography Engine
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sunghunkwag/gnn-codec-holography/blob/main/examples/colab_demo.ipynb)
+[![Docker Image](https://ghcr-badge.deta.dev/sunghunkwag/gnn-codec-holography/latest_tag?trim=major&label=Docker)](https://github.com/sunghunkwag/gnn-codec-holography/pkgs/container/gnn-codec-holography)
+
 A revolutionary neural network weight compression system using Graph Neural Networks (GNNs) and holographic representations.
 
 ## Overview
@@ -17,6 +20,7 @@ This project implements a novel approach to neural network compression by:
 - **Predictive Compression**: GNN-based weight prediction reduces residual information
 - **Memory Efficient**: O(E) complexity vs O(N²) for transformer-based approaches
 - **Hardware Agnostic**: Supports CPU/GPU acceleration via PyTorch Geometric
+- **Production Ready**: Docker containers and cloud deployment support
 
 ## Performance
 
@@ -27,6 +31,14 @@ This project implements a novel approach to neural network compression by:
 
 ## Quick Start
 
+### Option 1: Google Colab (Recommended for Testing)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sunghunkwag/gnn-codec-holography/blob/main/examples/colab_demo.ipynb)
+
+Click the badge above to run the demo directly in Google Colab with no setup required.
+
+### Option 2: Local Installation
+
 ```bash
 # Install dependencies
 pip install torch torch-geometric numpy
@@ -35,8 +47,25 @@ pip install torch torch-geometric numpy
 git clone https://github.com/sunghunkwag/gnn-codec-holography.git
 cd gnn-codec-holography
 
+# Install package
+pip install -e .
+
 # Run example
 python examples/compress_model.py
+```
+
+### Option 3: Docker Deployment
+
+```bash
+# Pull pre-built image
+docker pull ghcr.io/sunghunkwag/gnn-codec-holography:latest
+
+# Run container
+docker run --gpus all -it ghcr.io/sunghunkwag/gnn-codec-holography:latest
+
+# Or build locally
+docker build -t gnn-codec-holography .
+docker run --gpus all -it gnn-codec-holography
 ```
 
 ## Architecture
@@ -54,6 +83,81 @@ Reconstructed ← Inverse Transform ← Residual + Prediction ← Dequantizer �
 - `tests/`: Unit tests and benchmarks
 - `docs/`: Technical documentation
 - `benchmarks/`: Performance evaluation scripts
+- `Dockerfile`: Production-ready container configuration
+- `.github/workflows/`: Automated CI/CD pipelines
+
+## Development
+
+### Building from Source
+
+```bash
+git clone https://github.com/sunghunkwag/gnn-codec-holography.git
+cd gnn-codec-holography
+pip install -e .
+```
+
+### Running Tests
+
+```bash
+pytest tests/
+```
+
+### Docker Development
+
+```bash
+# Build development image
+docker build -t gnn-codec-dev .
+
+# Run with volume mount for development
+docker run --gpus all -v $(pwd):/app -it gnn-codec-dev bash
+```
+
+## Production Deployment
+
+### Cloud Infrastructure
+
+For large-scale deployment:
+
+```bash
+# AWS ECS/EKS
+docker pull ghcr.io/sunghunkwag/gnn-codec-holography:latest
+
+# Google Cloud Run
+gcloud run deploy gnn-codec --image ghcr.io/sunghunkwag/gnn-codec-holography:latest
+
+# Azure Container Instances
+az container create --resource-group myResourceGroup \
+  --name gnn-codec --image ghcr.io/sunghunkwag/gnn-codec-holography:latest
+```
+
+### Kubernetes Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gnn-codec-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gnn-codec
+  template:
+    metadata:
+      labels:
+        app: gnn-codec
+    spec:
+      containers:
+      - name: gnn-codec
+        image: ghcr.io/sunghunkwag/gnn-codec-holography:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+```
+
+## Contributing
+
+We welcome contributions! Please see our contributing guidelines and submit pull requests.
 
 ## License
 
