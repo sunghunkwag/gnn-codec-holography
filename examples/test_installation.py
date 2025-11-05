@@ -56,16 +56,27 @@ def test_basic_functionality():
     try:
         import torch
         import numpy as np
-        from gnn_codec import ComplexTensor
+        from gnn_codec import ComplexTensor, HolographicTransform
         
-        # Test ComplexTensor creation
-        data = torch.randn(10, 5)
-        complex_tensor = ComplexTensor(data)
+        # Test ComplexTensor creation (requires both real and imaginary parts)
+        real_data = torch.randn(10, 5)
+        imag_data = torch.randn(10, 5) 
+        complex_tensor = ComplexTensor(real_data, imag_data)
         print(f"✓ Created ComplexTensor with shape {complex_tensor.real.shape}")
         
         # Test basic operations
-        result = complex_tensor.magnitude()
-        print(f"✓ Computed magnitude: {result.mean().item():.4f}")
+        magnitude = complex_tensor.abs()
+        print(f"✓ Computed magnitude: {magnitude.mean().item():.4f}")
+        
+        # Test angle computation
+        angle = complex_tensor.angle()
+        print(f"✓ Computed angle: {angle.mean().item():.4f}")
+        
+        # Test HolographicTransform
+        transform = HolographicTransform()
+        test_input = torch.randn(5, 3)
+        transformed = transform(test_input)
+        print(f"✓ HolographicTransform test: output shape {transformed.real.shape}")
         
         return True
         
