@@ -1,7 +1,7 @@
 # GNN-Based Codec-Holography Engine
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sunghunkwag/gnn-codec-holography/blob/main/examples/colab_demo.ipynb)
-[![Container](https://img.shields.io/badge/GHCR-gnn--codec--holography-2ea44f)](https://github.com/sunghunkwag/gnn-codec-holography/pkgs/container/gnn-codec-holography)
+[![Container](https://img.shields.io/badge/GHCR-gnn--codec--holography-2ea44f)](#docker-deployment)
 
 A revolutionary neural network weight compression system using Graph Neural Networks (GNNs) and holographic representations.
 
@@ -67,6 +67,8 @@ docker run --gpus all -it ghcr.io/sunghunkwag/gnn-codec-holography:latest
 docker build -t gnn-codec-holography .
 docker run --gpus all -it gnn-codec-holography
 ```
+
+> Latest container: `ghcr.io/sunghunkwag/gnn-codec-holography:latest`
 
 ## Architecture
 
