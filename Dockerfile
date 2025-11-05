@@ -8,7 +8,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     git \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Copy ALL necessary files first (including README.md which setup.py needs)
 COPY README.md .
@@ -16,34 +19,60 @@ COPY requirements.txt .
 COPY pyproject.toml .
 COPY setup.py .
 
-# Install Python dependencies from requirements.txt first
+# Upgrade pip and install build tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Install Python dependencies from requirements.txt first
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install PyTorch Geometric with proper CUDA support
-RUN pip install torch-geometric -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
+# Use conda to avoid potential conflicts
+RUN conda install -c pyg torch-geometric -y || \
+    pip install torch-geometric -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
 
 # Copy source code after installing dependencies
 COPY src/ ./src/
 COPY examples/ ./examples/
+COPY tests/ ./tests/ 2>/dev/null || echo "No tests directory found, skipping..."
 
 # Install the package in development mode
-# Add error handling to see what exactly fails
-RUN pip install -e . || (echo "Installation failed. Listing current directory:"; ls -la; echo "Checking src directory:"; ls -la src/; echo "Checking requirements:"; cat requirements.txt; exit 1)
+# Add comprehensive error handling and debugging
+RUN echo "=== Installation Debug Info ===" && \
+    echo "Current directory contents:" && ls -la && \
+    echo "Source directory contents:" && ls -la src/ && \
+    echo "Requirements:" && cat requirements.txt && \
+    echo "=== Installing package ===" && \
+    pip install -e . && \
+    echo "=== Installation successful ==="
+
+# Run installation test to verify everything works
+RUN python examples/test_installation.py
 
 # Set environment variables
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app/src:/app
 ENV CUDA_VISIBLE_DEVICES=0
+ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6"
 
 # Expose port for Jupyter if needed
 EXPOSE 8888
 
-# Create a simple health check script
-RUN echo 'import torch; import torch_geometric; import gnn_codec; print("Container healthy"); print(f"CUDA available: {torch.cuda.is_available()}"); print(f"GNN Codec version: {gnn_codec.__version__}")' > /app/healthcheck.py
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+echo "GNN Codec Holography Engine - Docker Container"\n\
+echo "==========================================="\n\
+echo "Available examples:"\n\
+ls -la examples/\n\
+echo "\nRunning compress_model.py if available, otherwise test_installation.py"\n\
+if [ -f "examples/compress_model.py" ]; then\n\
+    python examples/compress_model.py\n\
+else\n\
+    echo "compress_model.py not found, running installation test..."\n\
+    python examples/test_installation.py\n\
+fi' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# Default command - fallback to healthcheck if compress_model.py doesn't exist
-CMD python examples/compress_model.py 2>/dev/null || python healthcheck.py
+# Default command
+CMD ["/app/entrypoint.sh"]
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD python /app/healthcheck.py || exit 1
+# Health check using our test script
+HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+  CMD python examples/test_installation.py || exit 1
