@@ -56,19 +56,20 @@ ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6"
 # Expose port for Jupyter if needed
 EXPOSE 8888
 
-# Create entrypoint script
-RUN echo '#!/bin/bash\n\
+# Create entrypoint script using printf (safer than echo with complex strings)
+RUN printf '#!/bin/bash\n\
 echo "GNN Codec Holography Engine - Docker Container"\n\
 echo "==========================================="\n\
 echo "Available examples:"\n\
 ls -la examples/\n\
-echo "\nRunning compress_model.py if available, otherwise test_installation.py"\n\
+echo ""\n\
+echo "Running compress_model.py if available, otherwise test_installation.py"\n\
 if [ -f "examples/compress_model.py" ]; then\n\
     python examples/compress_model.py\n\
 else\n\
     echo "compress_model.py not found, running installation test..."\n\
     python examples/test_installation.py\n\
-fi' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+fi\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Default command
 CMD ["/app/entrypoint.sh"]
