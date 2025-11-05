@@ -1,6 +1,5 @@
 # GNN-Based Codec-Holography Engine
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sunghunkwag/gnn-codec-holography/blob/main/examples/colab_demo.ipynb)
 [![Container](https://img.shields.io/badge/GHCR-gnn--codec--holography-2ea44f)](#docker-deployment)
 
 A revolutionary neural network weight compression system using Graph Neural Networks (GNNs) and holographic representations.
@@ -31,13 +30,23 @@ This project implements a novel approach to neural network compression by:
 
 ## Quick Start
 
-### Option 1: Google Colab (Recommended for Testing)
+### Docker Deployment
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sunghunkwag/gnn-codec-holography/blob/main/examples/colab_demo.ipynb)
+```bash
+# Pull pre-built image
+docker pull ghcr.io/sunghunkwag/gnn-codec-holography:latest
 
-Click the badge above to run the demo directly in Google Colab with no setup required.
+# Run container
+docker run --gpus all -it ghcr.io/sunghunkwag/gnn-codec-holography:latest
 
-### Option 2: Local Installation
+# Or build locally
+docker build -t gnn-codec-holography .
+docker run --gpus all -it gnn-codec-holography
+```
+
+> Latest container: `ghcr.io/sunghunkwag/gnn-codec-holography:latest`
+
+### Local Installation
 
 ```bash
 # Install dependencies
@@ -53,22 +62,6 @@ pip install -e .
 # Run example
 python examples/compress_model.py
 ```
-
-### Option 3: Docker Deployment
-
-```bash
-# Pull pre-built image
-docker pull ghcr.io/sunghunkwag/gnn-codec-holography:latest
-
-# Run container
-docker run --gpus all -it ghcr.io/sunghunkwag/gnn-codec-holography:latest
-
-# Or build locally
-docker build -t gnn-codec-holography .
-docker run --gpus all -it gnn-codec-holography
-```
-
-> Latest container: `ghcr.io/sunghunkwag/gnn-codec-holography:latest`
 
 ## Architecture
 
