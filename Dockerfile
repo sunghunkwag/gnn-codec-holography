@@ -33,7 +33,13 @@ RUN conda install -c pyg torch-geometric -y || \
 # Copy source code after installing dependencies
 COPY src/ ./src/
 COPY examples/ ./examples/
-COPY tests/ ./tests/ 2>/dev/null || echo "No tests directory found, skipping..."
+
+# Copy tests directory if it exists (safe shell-based approach)
+RUN if [ -d tests ]; then \
+      mkdir -p ./tests && cp -r tests/* ./tests/; \
+    else \
+      echo "No tests directory found, skipping..."; \
+    fi
 
 # Install the package in development mode
 # Add comprehensive error handling and debugging
