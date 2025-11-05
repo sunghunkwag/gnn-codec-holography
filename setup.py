@@ -1,10 +1,30 @@
 from setuptools import setup, find_packages
+import os
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
+# Safely read README.md with fallback
+try:
+    with open("README.md", "r", encoding="utf-8") as fh:
+        long_description = fh.read()
+except FileNotFoundError:
+    print("Warning: README.md not found, using default description")
+    long_description = "GNN-based neural network weight compression using holographic representations"
 
-with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+# Safely read requirements.txt with fallback
+try:
+    with open("requirements.txt", "r", encoding="utf-8") as fh:
+        requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+except FileNotFoundError:
+    print("Warning: requirements.txt not found, using minimal requirements")
+    requirements = [
+        "torch>=2.0.0",
+        "torch-geometric>=2.4.0", 
+        "numpy>=1.21.0",
+        "scipy>=1.7.0",
+        "matplotlib>=3.5.0",
+        "tqdm>=4.60.0"
+    ]
+
+print(f"Installing with requirements: {requirements}")
 
 setup(
     name="gnn-codec-holography",
