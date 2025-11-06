@@ -2,15 +2,15 @@
 
 [![Container](https://img.shields.io/badge/GHCR-gnn--codec--holography-2ea44f)](#docker-deployment)
 
-A revolutionary neural network weight compression system using Graph Neural Networks (GNNs) and holographic representations.
+A neural network weight compression system using Graph Neural Networks (GNNs) and holographic representations.
 
 ## Overview
 
-This project implements a novel approach to neural network compression by:
+This project implements an experimental approach to neural network compression by:
 - Converting weights to graph structures 
 - Applying holographic transformations to complex-valued representations
 - Using Graph Neural Networks for predictive compression
-- Achieving 240x+ compression ratios with minimal quality loss
+- Exploring compression techniques with acceptable quality trade-offs
 
 ## Key Features
 
@@ -19,14 +19,14 @@ This project implements a novel approach to neural network compression by:
 - **Predictive Compression**: GNN-based weight prediction reduces residual information
 - **Memory Efficient**: O(E) complexity vs O(N²) for transformer-based approaches
 - **Hardware Agnostic**: Supports CPU/GPU acceleration via PyTorch Geometric
-- **Production Ready**: Docker containers and cloud deployment support
+- **Research Implementation**: Docker containers for experimentation and testing
 
 ## Performance
 
-- Base GNN compression: 28.9x average
-- Projected full system: 2,730x compression  
-- Memory efficiency: 96.6% reduction
-- Processing time: <150ms on GPU for large models
+- Base GNN compression: 28.9x average (preliminary results)
+- Target system: Higher compression ratios under investigation
+- Memory efficiency improvements demonstrated
+- Processing time: Varies based on model size and hardware
 
 ## Quick Start
 
@@ -78,7 +78,7 @@ Reconstructed ← Inverse Transform ← Residual + Prediction ← Dequantizer �
 - `tests/`: Unit tests and benchmarks
 - `docs/`: Technical documentation
 - `benchmarks/`: Performance evaluation scripts
-- `Dockerfile`: Production-ready container configuration
+- `Dockerfile`: Container configuration for testing
 - `.github/workflows/`: Automated CI/CD pipelines
 
 ## Development
@@ -107,11 +107,11 @@ docker build -t gnn-codec-dev .
 docker run --gpus all -v $(pwd):/app -it gnn-codec-dev bash
 ```
 
-## Production Deployment
+## Deployment
 
 ### Cloud Infrastructure
 
-For large-scale deployment:
+For experimentation and testing:
 
 ```bash
 # AWS ECS/EKS
@@ -133,7 +133,7 @@ kind: Deployment
 metadata:
   name: gnn-codec-deployment
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: gnn-codec
