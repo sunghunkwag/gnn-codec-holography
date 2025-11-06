@@ -19,13 +19,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Free disk space
+    - name: Free disk space (aggressive)
       run: |
-        df -h
-        sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache /usr/local/lib/android /usr/share/swift || true
+        echo "=== Before cleanup ==="; df -h
+        sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache /usr/local/lib/android /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium /usr/local/graalvm /opt/az || true
         sudo docker system prune -af --volumes || true
         sudo docker builder prune -af || true
-        df -h
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+        echo "=== After cleanup ==="; df -h
 
     - name: Setup Buildx
       uses: docker/setup-buildx-action@v3
@@ -54,35 +55,28 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build (read-only cache)
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/amd64
-        push: false
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        provenance: false
-        outputs: type=docker
-
-    - name: Run installation tests in container
+    - name: Build & test (multi-stage target=test inside build)
       run: |
-        docker build -t temp-test-image:ci --build-arg BUILDKIT_INLINE_CACHE=1 .
-        docker run --rm temp-test-image:ci python examples/test_installation.py
+        set -e
+        # Build test stage only to validate install & basic functionality in-image
+        docker buildx build \
+          --target test \
+          --platform linux/amd64 \
+          --cache-from type=gha \
+          --label org.opencontainers.image.revision=${{ github.sha }} \
+          --label org.opencontainers.image.source=${{ github.repository }} \
+          .
 
-    - name: Push image to GHCR (with retry)
+    - name: Build & push prod image (retry)
       if: github.event_name != 'pull_request'
       run: |
         set -e
         n=0
         until [ $n -ge 3 ]; do
           docker buildx build \
-            --cache-from type=gha \
-            --iidfile /tmp/iid.txt \
-            --label org.opencontainers.image.revision=${{ github.sha }} \
-            --label org.opencontainers.image.source=${{ github.repository }} \
+            --target prod \
             --platform linux/amd64 \
+            --cache-from type=gha \
             --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main \
             --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             --push .
