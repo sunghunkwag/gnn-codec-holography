@@ -35,8 +35,8 @@ FROM base AS test
 WORKDIR /app
 COPY src/ ./src/
 COPY examples/ ./examples/
-# tests are optional; copy if present
-COPY tests/ ./tests/ 2>/dev/null || true
+# tests directory is optional and NOT required for installation test
+# Removed invalid shell syntax from COPY; do not copy tests to avoid Dockerfile parsing issues
 
 # Editable install and validate inside build to fail early
 RUN pip install --no-cache-dir -e . \
