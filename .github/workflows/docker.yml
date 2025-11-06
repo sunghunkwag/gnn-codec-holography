@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -15,48 +16,32 @@ jobs:
       contents: read
       packages: write
     steps:
-    - name: Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
-    
-    - name: Free up disk space (comprehensive cleanup)
+
+    - name: Free disk space
       run: |
-        echo "=== Before cleanup ==="
         df -h
-        echo "=== Cleaning up system packages ==="
-        sudo apt-get clean
-        sudo apt-get autoremove -y
-        echo "=== Removing large unused directories ==="
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache
-        sudo rm -rf /usr/local/share/boost
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /usr/share/swift
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /usr/local/graalvm
-        sudo rm -rf /usr/local/share/powershell
-        sudo rm -rf /usr/local/share/chromium
-        echo "=== Docker cleanup ==="
-        sudo docker system prune -af --volumes
-        sudo docker builder prune -af
-        echo "=== After cleanup ==="
+        sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache /usr/local/lib/android /usr/share/swift || true
+        sudo docker system prune -af --volumes || true
+        sudo docker builder prune -af || true
         df -h
-    
-    - name: Set up Docker Buildx
+
+    - name: Setup Buildx
       uses: docker/setup-buildx-action@v3
       with:
         driver-opts: |
           image=moby/buildkit:v0.12.4
           network=host
-    
-    - name: Log in to Container Registry
+
+    - name: Login to GHCR
       if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -68,18 +53,75 @@ jobs:
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: Build and push Docker image
+
+    - name: Build (read-only cache)
       uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64
-        push: ${{ github.event_name != 'pull_request' }}
+        push: false
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
-        cache-to: type=gha,mode=max
-        build-args: |
-          BUILDKIT_INLINE_CACHE=1
         provenance: false
-        outputs: type=image,oci-mediatypes=true,compression=gzip,compression-level=6
+        outputs: type=docker
+
+    - name: Run installation tests in container
+      run: |
+        docker build -t temp-test-image:ci --build-arg BUILDKIT_INLINE_CACHE=1 .
+        docker run --rm temp-test-image:ci python examples/test_installation.py
+
+    - name: Push image to GHCR (with retry)
+      if: github.event_name != 'pull_request'
+      run: |
+        set -e
+        n=0
+        until [ $n -ge 3 ]; do
+          docker buildx build \
+            --cache-from type=gha \
+            --iidfile /tmp/iid.txt \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            --label org.opencontainers.image.source=${{ github.repository }} \
+            --platform linux/amd64 \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --push .
+          rc=$?; if [ $rc -eq 0 ]; then exit 0; fi
+          n=$((n+1)); echo "Push failed (try $n/3), retrying in 20s..."; sleep 20
+        done
+        exit 1
+
+  cache-export:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    continue-on-error: true
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          image=moby/buildkit:v0.12.4
+          network=host
+
+    - name: Export build cache (retry x3, non-fatal)
+      run: |
+        set +e
+        for t in 10 30 60; do
+          docker buildx build \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --platform linux/amd64 \
+            --output=type=cacheonly .
+          rc=$?
+          if [ $rc -eq 0 ]; then echo "Cache export OK"; exit 0; fi
+          echo "Cache export failed. Sleep ${t}s and retry"; sleep $t
+        done
+        echo "Cache export failed after retries. Skipping (non-fatal)."
+        exit 0
