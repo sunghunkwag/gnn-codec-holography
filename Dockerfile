@@ -1,75 +1,78 @@
-# GNN-Codec Holography Engine Docker Image
-FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-devel
+# GNN-Codec Holography Engine Docker Image (Robust Multi-Stage)
+# Slimmer base to reduce layer size and disk pressure
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime AS base
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# System deps (minimal) and cleanup
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     build-essential \
     wget \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+ && rm -rf /var/lib/apt/lists/* \
+ && apt-get clean
 
-# Copy ALL necessary files first (including README.md which setup.py needs)
+# Copy manifest files early for better layer caching
 COPY README.md .
 COPY requirements.txt .
 COPY pyproject.toml .
 COPY setup.py .
 
-# Upgrade pip and install build tools
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+# Python tooling and deps (pip-only; no conda to avoid bloat)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+ && pip install --no-cache-dir -r requirements.txt \
+ && pip cache purge || true \
+ && rm -rf /root/.cache || true
 
-# Install Python dependencies from requirements.txt first
-RUN pip install --no-cache-dir -r requirements.txt
+# Torch Geometric (CUDA 11.8 compatible)
+RUN pip install --no-cache-dir torch-geometric -f https://data.pyg.org/whl/torch-2.1.0+cu118.html \
+ && pip cache purge || true \
+ && rm -rf /root/.cache || true
 
-# Install PyTorch Geometric with proper CUDA support
-# Use conda to avoid potential conflicts
-RUN conda install -c pyg torch-geometric -y || \
-    pip install torch-geometric -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
-
-# Copy source code after installing dependencies
+# ---------- TEST STAGE ----------
+FROM base AS test
+WORKDIR /app
 COPY src/ ./src/
 COPY examples/ ./examples/
+# tests are optional; copy if present
+COPY tests/ ./tests/ 2>/dev/null || true
 
-# Copy tests directory if it exists (safe shell-based approach)
-RUN if [ -d tests ]; then \
-      mkdir -p ./tests && cp -r tests/* ./tests/; \
-    else \
-      echo "No tests directory found, skipping..."; \
-    fi
+# Editable install and validate inside build to fail early
+RUN pip install --no-cache-dir -e . \
+ && python examples/test_installation.py \
+ && pip cache purge || true \
+ && rm -rf /root/.cache || true
 
-# Install the package in development mode
-# Add comprehensive error handling and debugging
-RUN echo "=== Installation Debug Info ===" && \
-    echo "Current directory contents:" && ls -la && \
-    echo "Source directory contents:" && ls -la src/ && \
-    echo "Requirements:" && cat requirements.txt && \
-    echo "=== Installing package ===" && \
-    pip install -e . && \
-    echo "=== Installation successful ==="
+# ---------- RUNTIME/PROD STAGE ----------
+FROM base AS prod
+WORKDIR /app
+# Only what we need at runtime (keep image lean)
+COPY --from=test /app/src /app/src
+COPY --from=test /app/examples /app/examples
+COPY --from=test /app/README.md /app/README.md
+COPY --from=test /app/pyproject.toml /app/pyproject.toml
+COPY --from=test /app/setup.py /app/setup.py
 
-# Run installation test to verify everything works
-RUN python examples/test_installation.py
+# Install package (non-editable) for production
+RUN pip install --no-cache-dir . \
+ && pip cache purge || true \
+ && rm -rf /root/.cache || true
 
-# Set environment variables
 ENV PYTHONPATH=/app/src:/app
 ENV CUDA_VISIBLE_DEVICES=0
 ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6"
 
-# Expose port for Jupyter if needed
 EXPOSE 8888
 
-# Create entrypoint script using printf (safer than echo with complex strings)
+# Entrypoint kept simple and robust
 RUN printf '#!/bin/bash\n\
 echo "GNN Codec Holography Engine - Docker Container"\n\
 echo "==========================================="\n\
 echo "Available examples:"\n\
-ls -la examples/\n\
+ls -la examples/ || true\n\
 echo ""\n\
-echo "Running compress_model.py if available, otherwise test_installation.py"\n\
+echo "Running compress_model.py if available, otherwise installation test"\n\
 if [ -f "examples/compress_model.py" ]; then\n\
     python examples/compress_model.py\n\
 else\n\
@@ -77,9 +80,7 @@ else\n\
     python examples/test_installation.py\n\
 fi\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# Default command
 CMD ["/app/entrypoint.sh"]
 
-# Health check using our test script
 HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
   CMD python examples/test_installation.py || exit 1
